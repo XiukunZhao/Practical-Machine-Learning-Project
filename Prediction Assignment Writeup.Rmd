@@ -1,0 +1,83 @@
+---
+title: "Prediction Assignment Writeup"
+author: "Xiukun Zhao"
+date: "September 11, 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. The goal of this project is to use data from accelerometers on the belt, forearm, arm, and dumbell of six participants. They were asked to perform barbell lifts correctly and incorrectly in five different ways. The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har.
+
+## Pre-processing Data
+
+First, we read the training dataset and the testing dataset into R and identify "NA", "" and "#DIV/0!" as NA strings.
+
+### Load data
+
+```{r load data}
+library(caret)
+library(dplyr)
+library(randomForest)
+trainingData <- read.csv("pml-training.csv", header=T, na.strings=c("NA", "", "#DIV/0!"))
+testingData <- read.csv("pml-testing.csv", header=T, na.string=c("NA", "", "#DIV/0!"))
+```
+
+### Clean data
+
+Next, we remove all columns that contains NA and remove features that are not in the testing dataset. We also remove the first seven features because they are related to the time-series or are not numeric.
+
+```{r clean data}
+features <- names(testingData[,colSums(is.na(testingData)) == 0])[8:59]
+trainingData <- trainingData[,c(features,"classe")]
+testingData <- testingData[,c(features,"problem_id")]
+```
+
+### Data partitioning
+The training data is partitioned into a training data set (60% of the total cases) and a testing data set (40% of the total cases). 
+
+```{r data partitioning}
+set.seed(32323)
+inTrain <- createDataPartition(y=trainingData$classe, p=0.6, list=FALSE)
+training <- trainingData[inTrain,]
+testing <- trainingData[-inTrain,]
+```
+
+## Random Forest Model
+
+### Build a model
+
+We Use a random forest model to predict the classe variable. 
+
+```{r model}
+set.seed(32345)
+modelFit <- randomForest(classe ~ ., data = training, ntree = 1000)
+```
+
+### Get error estimates
+
+The out of sample error should be small. The error is estimated using the testing sample. The following results show that the model has an out of sample accuracy of 0.99.
+
+```{r error}
+classeCol <- grep("classe",names(testing))
+predTest <- predict(modelFit, newdata = testing[,-classeCol], type="class")
+confusionMatrix(predTest,testing$classe)
+```
+
+## Prediction
+
+Finally, we predict the testing data as follows.
+
+```{r prdiction}
+prediction <- predict(modelFit, testingData, type = "class")
+prediction
+```
+
+## Conclusion
+
+From the confusion matrix, the Random Forest model is very accurate. Because of that we could expect nearly all of the submitted test cases to be correct. 
+
